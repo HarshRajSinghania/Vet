@@ -1,0 +1,21 @@
+{
+  "name": "vet",
+  "version": "0.1.0",
+  "description": "Vet a GitHub repository: detect its languages and find broken links in its docs.",
+  "type": "module",
+  "bin": {
+    "vet": "./bin/vet.js"
+  },
+  "main": "src/cli.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node bin/vet.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.0.0",
+    "picocolors": "^1.0.0"
+  }
+}
