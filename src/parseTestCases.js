@@ -32,16 +32,35 @@ const LINE_READERS = [
 ];
 
 export function createCaseStatuses() {
-  return { byName: new Map(), byFile: new Map() };
+  return { byName: new Map(), byFile: new Map(), timesSeen: new Map() };
 }
 
 export function recordCaseStatuses(caseStatuses, output) {
+  const seenMochaFailures = new Set();
+  const timesSeenInThisOutput = new Map();
+
   for (const line of stripColors(output).split('\n')) {
     const found = readLine(line);
     if (!found) continue;
 
+    // Mocha numbers each failure twice: once in the test list, then again above
+    // its error details, where the line holds the suite name instead of the test.
+    if (found.mochaFailureNumber) {
+      if (seenMochaFailures.has(found.mochaFailureNumber)) continue;
+      seenMochaFailures.add(found.mochaFailureNumber);
+    }
+
     const statusMap = found.kind === 'file' ? caseStatuses.byFile : caseStatuses.byName;
     keepMostSevere(statusMap, found.key, found.status);
+    if (found.kind === 'name') {
+      timesSeenInThisOutput.set(found.key, (timesSeenInThisOutput.get(found.key) || 0) + 1);
+    }
+  }
+
+  // Several tests can share a name (e.g. generated in a loop). Keep the highest
+  // count from any one run, so a suite run by two commands isn't counted twice.
+  for (const [name, count] of timesSeenInThisOutput) {
+    caseStatuses.timesSeen.set(name, Math.max(caseStatuses.timesSeen.get(name) || 0, count));
   }
 }
 
@@ -78,6 +97,7 @@ function keepMostSevere(statusMap, key, status) {
 // Jest: "● math › adds numbers"    Vitest: "FAIL src/math.test.js > math > adds numbers"
 function readFailureDetailLine(line) {
   const jest = line.match(/^\s*●\s+(.+?)\s*$/);
+  if (jest && jest[1] === 'Console') return null; // a heading for console.log output, not a test
   if (jest) return { kind: 'name', key: lastPart(jest[1], ' › '), status: 'failed' };
 
   const vitest = line.match(/^\s*(?:FAIL|×)\s+\S+\s+>\s+(.+?)\s*$/);
@@ -108,9 +128,9 @@ function readCheckmarkLine(line) {
 
 // Mocha lists failures in place as "  1) adds numbers"
 function readMochaFailureLine(line) {
-  const match = line.match(/^\s+\d+\)\s+(.+?):?\s*$/);
+  const match = line.match(/^\s+(\d+)\)\s+(.+?):?\s*$/);
   if (!match) return null;
-  return { kind: 'name', key: match[1], status: 'failed' };
+  return { kind: 'name', key: match[2], status: 'failed', mochaFailureNumber: match[1] };
 }
 
 // pytest -v: "tests/test_math.py::test_add PASSED [ 50%]"   pytest -rA: "PASSED tests/test_math.py::test_add"

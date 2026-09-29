@@ -9,7 +9,10 @@ const JS_EXTENSIONS = '(js|jsx|ts|tsx|mjs|cjs)';
 const TEST_FILE_MATCHERS = [
   {
     language: 'JavaScript',
-    filePattern: new RegExp(`\\.(test|spec)\\.${JS_EXTENSIONS}$|(^|/)__tests__/.+\\.${JS_EXTENSIONS}$`),
+    // math.test.js, math.spec.js, test.js, or anything inside test/, tests/ or __tests__/
+    filePattern: new RegExp(
+      `\\.(test|spec)\\.${JS_EXTENSIONS}$|(^|/)tests?\\.${JS_EXTENSIONS}$|(^|/)(tests?|__tests__)/.+\\.${JS_EXTENSIONS}$`,
+    ),
     // it('...'), test("..."), it.skip(`...`) — but not something.test(...)
     namePattern: /(?<![.\w])(?:it|test)(?:\.(?<modifier>only|skip|todo|concurrent))?\(\s*(?<quote>['"`])(?<name>.+?)\k<quote>/g,
     needsHumanizing: false,
