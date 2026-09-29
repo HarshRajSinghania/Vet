@@ -1,9 +1,12 @@
 // Prints the final report to the console: languages found and any broken links.
 import picocolors from 'picocolors';
 
-export function printReport({ languages, brokenLinks, elapsedSeconds }) {
+export function printReport({ languages, brokenLinks }) {
   printLanguages(languages);
   printLinks(brokenLinks);
+}
+
+export function printElapsedTime(elapsedSeconds) {
   console.log(picocolors.dim(`\nDone in ${elapsedSeconds}s`));
 }
 
