@@ -1,56 +1,28 @@
-// Runs a Node.js project's own "test" script from package.json.
-import { readFile } from 'node:fs/promises';
+// Gets a Node.js project ready to test by installing its dependencies. The test
+// commands themselves come from the repo (see src/findTestCommands.js).
 import { join } from 'node:path';
 import { runCommand } from '../runCommand.js';
 
+const USES_NODE_PATTERN = /\b(npm|npx|yarn|pnpm|node|jest|vitest|mocha|make)\b/;
+
 export default {
   name: 'JavaScript',
+  defaultCommand: null,
+  coveredBy: null,
 
-  async canRun({ repoPath }) {
-    try {
-      const packageJson = JSON.parse(await readFile(join(repoPath, 'package.json'), 'utf8'));
-      return Boolean(packageJson.scripts && packageJson.scripts.test);
-    } catch {
-      return false;
-    }
+  isNeeded({ files, commands }) {
+    const hasPackageJson = files.includes('package.json');
+    return hasPackageJson && commands.some((entry) => USES_NODE_PATTERN.test(entry.command));
   },
 
-  async run(repoPath) {
+  async setup(repoPath) {
     const install = await runCommand('npm', ['install', '--no-audit', '--no-fund'], repoPath);
     if (install.missingCommand) {
       throw new Error('npm is not installed');
     }
     if (install.exitCode !== 0) {
-      throw new Error('npm install failed, so the tests could not run');
+      throw new Error('npm install failed, so its tests may not run correctly');
     }
-
-    const test = await runCommand('npm', ['test'], repoPath);
-    return parseOutput(test.output, test.exitCode);
+    return { pathEntries: [join(repoPath, 'node_modules', '.bin')] };
   },
 };
-
-function parseOutput(output, exitCode) {
-  const jestMatch = output.match(
-    /Tests:\s+(?:(\d+) failed, )?(?:(\d+) skipped, )?(\d+) passed, (\d+) total/,
-  );
-  if (jestMatch) {
-    const [, failed, skipped, passed, total] = jestMatch;
-    return {
-      passed: Number(passed),
-      failed: Number(failed || 0),
-      skipped: Number(skipped || 0),
-      total: Number(total),
-      exitCode,
-    };
-  }
-
-  const mochaPassing = output.match(/(\d+) passing/);
-  if (mochaPassing) {
-    const mochaFailing = output.match(/(\d+) failing/);
-    const passed = Number(mochaPassing[1]);
-    const failed = mochaFailing ? Number(mochaFailing[1]) : 0;
-    return { passed, failed, skipped: 0, total: passed + failed, exitCode };
-  }
-
-  return { passed: null, failed: null, skipped: null, total: null, exitCode };
-}

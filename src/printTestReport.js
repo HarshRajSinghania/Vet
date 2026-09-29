@@ -1,84 +1,70 @@
-// Prints what the test suite covers alongside what happened when it ran,
-// grouped by language so each result sits right next to what it tested.
+// Prints the Tests section: each test command vet ran and what it reported,
+// followed by every test case in the code with its individual result.
 import picocolors from 'picocolors';
+import { COMMAND_TIMEOUT_MINUTES } from './runCommand.js';
+import { printTestCases } from './printTestCases.js';
 
-const MAX_TEST_NAMES_PER_FILE = 8;
-const MAX_FILES_SHOWN = 15;
-
-export function printTestSection(outline, results) {
+export function printTestSection({ outline, testRun }) {
   console.log(picocolors.bold('\nTests'));
 
-  const languages = collectLanguageNames(outline, results);
-  if (languages.length === 0) {
-    console.log('  No recognizable test suite was found for this repo.');
+  if (testRun) {
+    printSetupProblems(testRun.setupProblems);
+    printCommandResults(testRun.commandResults);
+  } else {
+    console.log('  Not run (--no-tests was passed).');
+  }
+
+  printTestCases(outline, testRun ? testRun.caseStatuses : null);
+}
+
+function printSetupProblems(setupProblems) {
+  for (const problem of setupProblems) {
+    console.log(`  ${picocolors.yellow('!')} Couldn't prepare ${problem.name} tests: ${problem.error}`);
+  }
+}
+
+function printCommandResults(commandResults) {
+  console.log(picocolors.bold('\n  Test commands'));
+
+  if (commandResults.length === 0) {
+    console.log("    The repo doesn't declare any test commands vet knows how to run.");
     return;
   }
 
-  for (const language of languages) {
-    console.log(`\n  ${picocolors.underline(language)}`);
-    printOutlineForLanguage(outline, language);
-    printResultForLanguage(results, language);
+  for (const result of commandResults) {
+    printCommandResult(result);
   }
 }
 
-function collectLanguageNames(outline, results) {
-  const names = new Set();
-  for (const group of outline) names.add(group.language);
-  for (const result of results) names.add(result.name);
-  return Array.from(names);
-}
+function printCommandResult(result) {
+  const succeeded = result.exitCode === 0;
+  const icon = succeeded ? picocolors.green('✔') : picocolors.red('✘');
+  const details = picocolors.dim(`(from ${result.sources.join(', ')}, ${result.durationSeconds}s)`);
 
-function printOutlineForLanguage(outline, language) {
-  const groups = outline.filter((group) => group.language === language);
-  const shownGroups = groups.slice(0, MAX_FILES_SHOWN);
+  console.log(`\n    ${icon} ${picocolors.bold(result.command)} ${details}`);
+  console.log(`      ${describeOutcome(result)}`);
 
-  for (const group of shownGroups) {
-    console.log(`    ${picocolors.cyan(group.file)}`);
-    printTestNames(group.testNames);
-  }
-
-  const remainingFiles = groups.length - shownGroups.length;
-  if (remainingFiles > 0) {
-    console.log(`    ...and ${remainingFiles} more file(s) with tests`);
+  if (!succeeded && !result.summary) {
+    for (const line of result.outputTail) {
+      console.log(picocolors.dim(`      │ ${line}`));
+    }
   }
 }
 
-function printTestNames(testNames) {
-  const shownNames = testNames.slice(0, MAX_TEST_NAMES_PER_FILE);
-  for (const name of shownNames) {
-    console.log(`      - ${name}`);
-  }
-
-  const remainingNames = testNames.length - shownNames.length;
-  if (remainingNames > 0) {
-    console.log(`      ...and ${remainingNames} more`);
-  }
+function describeOutcome(result) {
+  if (result.timedOut) return `Stopped after ${COMMAND_TIMEOUT_MINUTES} minutes without finishing.`;
+  if (result.exitCode === 127) return "Couldn't start: a tool it needs isn't installed.";
+  if (result.summary) return describeSummary(result);
+  if (result.exitCode === 0) return "Finished successfully (it didn't print a test count vet recognizes).";
+  return `Failed with exit code ${result.exitCode}. Last lines of output:`;
 }
 
-function printResultForLanguage(results, language) {
-  const result = results.find((entry) => entry.name === language);
-  if (!result) {
-    console.log('    (not run)');
-    return;
-  }
-  printOneResult(result);
-}
+function describeSummary(result) {
+  const { passed, failed, skipped } = result.summary;
+  const counts = `${passed} passed, ${failed} failed, ${skipped} skipped`;
 
-function printOneResult(result) {
-  if (result.error) {
-    console.log(`    ${picocolors.yellow('!')} Could not run: ${result.error}`);
-    return;
+  if (result.exitCode !== 0 && failed === 0) {
+    return `${counts}, but the command still exited with code ${result.exitCode} (e.g. a coverage or lint check failed).`;
   }
-
-  if (result.total === null) {
-    console.log(
-      `    ${picocolors.yellow('?')} Ran, but the output didn't match a known format (exit code ${result.exitCode})`,
-    );
-    return;
-  }
-
-  const icon = result.failed > 0 ? picocolors.red('✘') : picocolors.green('✔');
-  console.log(
-    `    ${icon} ${result.passed} passed, ${result.failed} failed, ${result.skipped} skipped (${result.durationSeconds}s)`,
-  );
+  return counts;
 }

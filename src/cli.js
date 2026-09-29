@@ -15,16 +15,13 @@ export async function runCli(argv) {
   const program = new Command();
   program
     .name('vet')
-    .description("Vet a GitHub repository: detect its languages, find broken doc links, and optionally run its tests")
+    .description("Vet a GitHub repository: detect its languages, find broken doc links, and run its tests")
     .argument('<url>', 'GitHub repository URL, e.g. https://github.com/owner/repo')
-    .option(
-      '--run-tests',
-      "also run the repo's own test suite (installs dependencies and executes its code — only use this for repos you trust)",
-    )
+    .option('--no-tests', "don't run the repo's tests (running them executes the repo's code on your machine)")
     .parse(argv);
 
   const [url] = program.args;
-  const { runTests: shouldRunTests } = program.opts();
+  const { tests: shouldRunTests } = program.opts();
   await vetRepository(url, shouldRunTests);
 }
 
@@ -40,10 +37,7 @@ async function vetRepository(url, shouldRunTests) {
     const languages = await detectLanguages(repoPath);
     const brokenLinks = await findBrokenLinks(repoPath);
     printReport({ languages, brokenLinks });
-
-    if (shouldRunTests) {
-      await vetTests(repoPath);
-    }
+    await reportTests(repoPath, shouldRunTests);
 
     printElapsedTime(((Date.now() - startTime) / 1000).toFixed(1));
   } catch (error) {
@@ -56,14 +50,18 @@ async function vetRepository(url, shouldRunTests) {
   }
 }
 
-async function vetTests(repoPath) {
-  console.log(
-    picocolors.yellow(
-      "\nRunning the repo's own tests now. This executes its code on your machine, so only use --run-tests for repos you trust.",
-    ),
-  );
-
+// Test cases are always listed, since finding them only reads files. Running
+// them is the part that executes the repo's code, so --no-tests turns just that off.
+async function reportTests(repoPath, shouldRunTests) {
   const outline = await explainTests(repoPath);
-  const results = await runTests(repoPath);
-  printTestSection(outline, results);
+  let testRun = null;
+
+  if (shouldRunTests) {
+    console.log(
+      picocolors.yellow("\nRunning the repo's tests. This executes its code on your machine (pass --no-tests to skip)."),
+    );
+    testRun = await runTests(repoPath, (message) => console.log(picocolors.dim(`  ${message}`)));
+  }
+
+  printTestSection({ outline, testRun });
 }

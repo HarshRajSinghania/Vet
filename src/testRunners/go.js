@@ -1,32 +1,23 @@
-// Runs a Go project's test suite; Go's own toolchain resolves dependencies
-// from go.mod, so there's no separate install step.
+// Checks that Go is installed. Go's own toolchain fetches dependencies from
+// go.mod while testing, so there's nothing else to install first.
 import { runCommand } from '../runCommand.js';
 
 const TEST_FILE_PATTERN = /_test\.go$/;
 
 export default {
   name: 'Go',
+  defaultCommand: 'go test -v ./...',
+  coveredBy: /\bgo test\b/,
 
-  async canRun({ files }) {
+  isNeeded({ files }) {
     return files.some((file) => TEST_FILE_PATTERN.test(file));
   },
 
-  async run(repoPath) {
-    const result = await runCommand('go', ['test', './...', '-v'], repoPath);
-    if (result.missingCommand) {
+  async setup(repoPath) {
+    const version = await runCommand('go', ['version'], repoPath);
+    if (version.missingCommand) {
       throw new Error('go is not installed');
     }
-    return parseOutput(result.output, result.exitCode);
+    return { pathEntries: [] };
   },
 };
-
-function parseOutput(output, exitCode) {
-  const passed = (output.match(/--- PASS/g) || []).length;
-  const failed = (output.match(/--- FAIL/g) || []).length;
-
-  if (passed === 0 && failed === 0) {
-    return { passed: null, failed: null, skipped: null, total: null, exitCode };
-  }
-
-  return { passed, failed, skipped: 0, total: passed + failed, exitCode };
-}

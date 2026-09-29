@@ -1,29 +1,37 @@
-// Scans the repo's test files and turns their test names into a readable
-// outline of what the test suite checks, without running anything.
+// Finds every test case written in the repo's test files and gives each one a
+// readable name, without running anything.
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { listFiles } from './listFiles.js';
 
+const JS_EXTENSIONS = '(js|jsx|ts|tsx|mjs|cjs)';
+
 const TEST_FILE_MATCHERS = [
   {
     language: 'JavaScript',
-    filePattern: /\.(test|spec)\.(js|jsx|ts|tsx)$/,
-    namePattern: /\b(?:it|test)\(\s*['"`]([^'"`]+)['"`]/g,
+    filePattern: new RegExp(`\\.(test|spec)\\.${JS_EXTENSIONS}$|(^|/)__tests__/.+\\.${JS_EXTENSIONS}$`),
+    // it('...'), test("..."), it.skip(`...`) — but not something.test(...)
+    namePattern: /(?<![.\w])(?:it|test)(?:\.(?<modifier>only|skip|todo|concurrent))?\(\s*(?<quote>['"`])(?<name>.+?)\k<quote>/g,
+    needsHumanizing: false,
   },
   {
     language: 'Python',
     filePattern: /(^|\/)(test_[^/]+|[^/]+_test)\.py$/,
-    namePattern: /def (test_[a-zA-Z0-9_]+)\(/g,
+    namePattern: /(?:async\s+)?def (?<name>test_\w+)\s*\(/g,
+    needsHumanizing: true,
   },
   {
     language: 'Go',
     filePattern: /_test\.go$/,
-    namePattern: /func (Test[A-Za-z0-9_]+)\(/g,
+    namePattern: /func (?<name>Test\w*)\(\s*\w+\s+\*testing\.T\s*\)/g,
+    needsHumanizing: true,
   },
   {
     language: 'Rust',
     filePattern: /\.rs$/,
-    namePattern: /#\[test\]\s*\n\s*(?:async\s+)?fn ([a-zA-Z0-9_]+)/g,
+    // #[test] or #[tokio::test], possibly followed by more attributes like #[should_panic]
+    namePattern: /#\[(?:\w+::)?test\](?:\s*#\[[^\]]*\])*\s*(?:pub\s+)?(?:async\s+)?fn (?<name>\w+)/g,
+    needsHumanizing: true,
   },
 ];
 
@@ -36,30 +44,36 @@ export async function explainTests(repoPath) {
     if (!matcher) continue;
 
     const content = await readFile(join(repoPath, file), 'utf8');
-    const testNames = extractTestNames(content, matcher.namePattern);
-    if (testNames.length > 0) {
-      outline.push({ file, language: matcher.language, testNames });
+    const tests = extractTests(content, matcher);
+    if (tests.length > 0) {
+      outline.push({ file, language: matcher.language, tests });
     }
   }
 
   return outline;
 }
 
-function extractTestNames(content, namePattern) {
-  namePattern.lastIndex = 0;
-  const names = [];
-  let match;
+function extractTests(content, matcher) {
+  const tests = [];
 
-  while ((match = namePattern.exec(content)) !== null) {
-    names.push(humanizeTestName(match[1]));
+  for (const match of content.matchAll(matcher.namePattern)) {
+    const { name, modifier } = match.groups;
+    tests.push({
+      rawName: name,
+      displayName: matcher.needsHumanizing ? humanizeTestName(name) : name,
+      skippedInCode: modifier === 'skip' || modifier === 'todo',
+    });
   }
 
-  return names;
+  return tests;
 }
 
+// "test_divide_by_zero" -> "divide by zero", "TestSubtractNegative" -> "Subtract Negative"
 function humanizeTestName(rawName) {
-  return rawName
+  const readable = rawName
     .replace(/^test_?/i, '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/_/g, ' ')
     .trim();
+  return readable || rawName;
 }
