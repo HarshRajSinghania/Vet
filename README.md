@@ -2,8 +2,8 @@
 
 A command-line tool that vets a GitHub repository: it detects which
 programming languages the repo uses, checks the links in its Markdown files
-for anything broken, and — if you ask it to — runs the repo's own test suite
-and explains both what the tests check and what happened when they ran.
+for anything broken, and runs every test the repo declares, showing whether
+each individual test case passed or failed.
 
 ## Install
 
@@ -40,40 +40,63 @@ Links
 Done in 5.2s
 ```
 
-## Running the repo's tests
+## Tests
 
-Pass `--run-tests` to also run the repo's own test suite:
+Vet runs the repo's tests the way its own authors do. It collects every test
+command the repo declares:
 
-```bash
-vet https://github.com/owner/repo --run-tests
-```
+- `test` scripts in `package.json` (`test`, `test:unit`, `test:e2e`, ...)
+- `test` targets in the `Makefile`
+- test steps in its GitHub Actions workflows (`.github/workflows/*.yml`)
 
-**This executes the repository's code on your machine** — installing its
-dependencies and running its test scripts, the same way `npm test` or
-`pytest` would. Only use it on repos you trust. That's also why it's off by
-default: the rest of `vet` only reads files and checks links, but
-`--run-tests` runs arbitrary code.
+It skips anything that would never finish (watch modes, UIs) or only works on
+GitHub's servers, and doesn't run a script twice when another already calls
+it. If the repo declares nothing for a language, Vet falls back to that
+language's usual command (`pytest`, `go test ./...`, `cargo test`).
 
-When it's on, Vet detects which test runner applies (JavaScript via
-`npm test`, Python via `pytest` in a throwaway virtual environment, Go via
-`go test`, or Rust via `cargo test`), skips gracefully if the matching tool
-isn't installed, and prints both what each test file checks and the pass/fail
-counts next to it:
+Before running, it prepares each language inside the temporary clone:
+`npm install` for JavaScript, a throwaway virtual environment for Python. Then
+it lists **every test case**, each with its own result:
 
 ```
 Tests
 
-  JavaScript
-    math.test.js
-      - adds numbers
-      - this one fails on purpose
-    ✘ 1 passed, 1 failed, 0 skipped (2.9s)
+  Test commands
 
-  Python
-    test_math.py
-      - add works
-      - this one is skipped
-    ✔ 2 passed, 0 failed, 1 skipped (4.6s)
+    ✘ npm run test (from package.json, 1.2s)
+      2 passed, 1 failed, 1 skipped
+
+    ✘ python -m pytest tests -q (from .github/workflows/ci.yml, 0.2s)
+      1 passed, 1 failed, 1 skipped
+
+  Test cases
+
+    JavaScript
+      math.test.js
+        ✔ adds numbers
+        ✘ doesn't divide by zero
+        ○ rounds money
+
+    Python
+      tests/test_math.py
+        ✔ add works
+        ✘ this one fails
+        ○ later
+
+    6 test case(s): 2 passed, 2 failed, 2 skipped, 0 without an individual result
+```
+
+✔ passed, ✘ failed, ○ skipped, and ? means the test tool didn't name that
+test in its output. Tests the code creates while running (like `it()` calls
+inside a loop) are listed from the test output too.
+
+**Running tests executes the repository's code on your machine**, just like
+running `npm test` or `pytest` yourself. Only vet repos you trust, or pass
+`--no-tests` to skip running them. Vet still lists the test cases it finds in
+the code, since that only reads files:
+
+```bash
+vet https://github.com/owner/repo --no-tests
 ```
 
 ## How it works
