@@ -1,4 +1,5 @@
 // Wires together the command line, the repo checks, and the report.
+import { readFileSync } from 'node:fs';
 import { Command } from 'commander';
 import picocolors from 'picocolors';
 import { parseRepoUrl } from './parseRepoUrl.js';
@@ -11,10 +12,13 @@ import { runTests } from './runTests.js';
 import { printReport, printElapsedTime } from './report.js';
 import { printTestSection } from './printTestReport.js';
 
+const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+
 export async function runCli(argv) {
   const program = new Command();
   program
     .name('vet')
+    .version(packageJson.version)
     .description("Vet a GitHub repository: detect its languages, find broken doc links, and run its tests")
     .argument('<url>', 'GitHub repository URL, e.g. https://github.com/owner/repo')
     .option('--no-tests', "don't run the repo's tests (running them executes the repo's code on your machine)")
