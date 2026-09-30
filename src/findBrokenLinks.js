@@ -10,6 +10,7 @@ export async function findBrokenLinks(repoPath) {
   const markdownFiles = files.filter((file) => file.endsWith('.md'));
 
   const brokenLinks = [];
+  const unverifiedLinks = [];
   let checkedCount = 0;
 
   for (const file of markdownFiles) {
@@ -19,11 +20,16 @@ export async function findBrokenLinks(repoPath) {
     for (const link of links) {
       checkedCount += 1;
       const result = await checkLink(link);
-      if (!result.ok) {
-        brokenLinks.push({ url: link, file, reason: result.reason });
+      if (result.ok) continue;
+
+      const entry = { url: link, file, reason: result.reason };
+      if (result.blocked) {
+        unverifiedLinks.push(entry);
+      } else {
+        brokenLinks.push(entry);
       }
     }
   }
 
-  return { checkedCount, brokenLinks };
+  return { checkedCount, brokenLinks, unverifiedLinks };
 }
