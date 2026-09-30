@@ -11,7 +11,8 @@
     "node": ">=18"
   },
   "scripts": {
-    "start": "node bin/vet.js"
+    "start": "node bin/vet.js",
+    "test": "node --test test/*.test.js"
   },
   "license": "MIT",
   "dependencies": {
