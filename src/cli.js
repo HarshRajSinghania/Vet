@@ -14,6 +14,10 @@ import { printTestSection } from './printTestReport.js';
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
+// By default Ctrl+C kills Node without running 'exit' handlers. Exiting
+// normally lets tempDir.js and runCommand.js clean up after themselves.
+process.on('SIGINT', () => process.exit(130));
+
 export async function runCli(argv) {
   const program = new Command();
   program

@@ -5,16 +5,15 @@ import { spawn } from 'node:child_process';
 export const COMMAND_TIMEOUT_MINUTES = 5;
 const MAX_OUTPUT_CHARACTERS = 5 * 1024 * 1024;
 
-// Each command runs in its own process group, so a timeout or Ctrl+C can stop
-// everything it started (like the test process a shell script launched), not
-// just the shell itself.
+// Each command runs in its own process group, so a timeout or vet exiting
+// early can stop everything it started (like the test process a shell script
+// launched), not just the shell itself.
 const runningProcessGroups = new Set();
 
-process.on('SIGINT', () => {
+process.on('exit', () => {
   for (const processId of runningProcessGroups) {
     stopProcessGroup(processId);
   }
-  process.exit(130);
 });
 
 export function runCommand(command, args, cwd, env = process.env) {
