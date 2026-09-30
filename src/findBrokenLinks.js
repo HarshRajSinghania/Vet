@@ -6,23 +6,18 @@ import { extractLinks } from './extractLinks.js';
 import { checkLink } from './checkLink.js';
 
 export async function findBrokenLinks(repoPath) {
-  const files = await listFiles(repoPath);
-  const markdownFiles = files.filter((file) => file.endsWith('.md'));
-
+  const filesByUrl = await collectLinks(repoPath);
   const brokenLinks = [];
   const unverifiedLinks = [];
-  let checkedCount = 0;
 
-  for (const file of markdownFiles) {
-    const content = await readFile(join(repoPath, file), 'utf8');
-    const links = extractLinks(content);
+  // The same URL often appears in several files (like translated READMEs),
+  // so each one is checked once and the result applies everywhere it appears.
+  for (const [url, files] of filesByUrl) {
+    const result = await checkLink(url);
+    if (result.ok) continue;
 
-    for (const link of links) {
-      checkedCount += 1;
-      const result = await checkLink(link);
-      if (result.ok) continue;
-
-      const entry = { url: link, file, reason: result.reason };
+    for (const file of files) {
+      const entry = { url, file, reason: result.reason };
       if (result.blocked) {
         unverifiedLinks.push(entry);
       } else {
@@ -31,5 +26,24 @@ export async function findBrokenLinks(repoPath) {
     }
   }
 
-  return { checkedCount, brokenLinks, unverifiedLinks };
+  return { checkedCount: filesByUrl.size, brokenLinks, unverifiedLinks };
+}
+
+async function collectLinks(repoPath) {
+  const files = await listFiles(repoPath);
+  const filesByUrl = new Map();
+
+  for (const file of files) {
+    if (!file.endsWith('.md')) continue;
+
+    const content = await readFile(join(repoPath, file), 'utf8');
+    for (const url of extractLinks(content)) {
+      if (!filesByUrl.has(url)) {
+        filesByUrl.set(url, []);
+      }
+      filesByUrl.get(url).push(file);
+    }
+  }
+
+  return filesByUrl;
 }
