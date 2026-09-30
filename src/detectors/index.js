@@ -7,5 +7,6 @@ import ruby from './ruby.js';
 import rust from './rust.js';
 import java from './java.js';
 import php from './php.js';
+import csharp from './csharp.js';
 
-export const detectors = [javascript, python, go, ruby, rust, java, php];
+export const detectors = [javascript, python, go, ruby, rust, java, php, csharp];
