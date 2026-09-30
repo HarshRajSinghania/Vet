@@ -6,5 +6,6 @@ import go from './go.js';
 import ruby from './ruby.js';
 import rust from './rust.js';
 import java from './java.js';
+import php from './php.js';
 
-export const detectors = [javascript, python, go, ruby, rust, java];
+export const detectors = [javascript, python, go, ruby, rust, java, php];
