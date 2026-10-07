@@ -12,6 +12,8 @@ import { checkBinaries } from './checkBinaries.js';
 import { detectLicense } from './detectLicense.js';
 import { checkWorkflows } from './checkWorkflows.js';
 import { fetchRepoInfo } from './fetchRepoInfo.js';
+import { scoreReport } from './scoreReport.js';
+import { printScore } from './printScore.js';
 import { explainTests } from './explainTests.js';
 import { runTests } from './runTests.js';
 import { printReport, printElapsedTime } from './report.js';
@@ -56,7 +58,9 @@ async function vetRepository(url, shouldRunTests) {
     report.workflows = await checkWorkflows(repoPath);
     report.links = await findBrokenLinks(repoPath);
     printReport(report);
-    await reportTests(repoPath, shouldRunTests);
+    report.tests = await reportTests(repoPath, shouldRunTests);
+    report.score = scoreReport(report);
+    printScore(report.score);
 
     printElapsedTime(((Date.now() - startTime) / 1000).toFixed(1));
   } catch (error) {
@@ -83,4 +87,5 @@ async function reportTests(repoPath, shouldRunTests) {
   }
 
   printTestSection({ outline, testRun });
+  return { outline, testRun };
 }
