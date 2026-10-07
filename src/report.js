@@ -1,9 +1,12 @@
-// Prints the final report to the console: languages found and any broken links.
+// Prints the final report to the console: languages found, repo health,
+// and any broken links.
 import picocolors from 'picocolors';
+import { printHealth } from './printHealth.js';
 
-export function printReport({ languages, brokenLinks }) {
-  printLanguages(languages);
-  printLinks(brokenLinks);
+export function printReport(report) {
+  printLanguages(report.languages);
+  printHealth(report);
+  printLinks(report.links);
 }
 
 export function printElapsedTime(elapsedSeconds) {

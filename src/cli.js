@@ -7,6 +7,7 @@ import { cloneRepo } from './cloneRepo.js';
 import { removeTempDir } from './tempDir.js';
 import { detectLanguages } from './detectLanguage.js';
 import { findBrokenLinks } from './findBrokenLinks.js';
+import { checkHygiene } from './checkHygiene.js';
 import { explainTests } from './explainTests.js';
 import { runTests } from './runTests.js';
 import { printReport, printElapsedTime } from './report.js';
@@ -42,9 +43,11 @@ async function vetRepository(url, shouldRunTests) {
     console.log(`Vetting ${picocolors.bold(repoName)}...\n`);
 
     repoPath = await cloneRepo(url);
-    const languages = await detectLanguages(repoPath);
-    const brokenLinks = await findBrokenLinks(repoPath);
-    printReport({ languages, brokenLinks });
+    const report = { repo: repoName };
+    report.languages = await detectLanguages(repoPath);
+    report.hygiene = await checkHygiene(repoPath);
+    report.links = await findBrokenLinks(repoPath);
+    printReport(report);
     await reportTests(repoPath, shouldRunTests);
 
     printElapsedTime(((Date.now() - startTime) / 1000).toFixed(1));
