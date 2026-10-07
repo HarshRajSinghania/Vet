@@ -6,8 +6,9 @@ import { createFixtureRepo, removeFixtureRepo } from './fixtureRepo.js';
 
 test('flags compiled programs but not images, text or the Gradle wrapper', async () => {
   const repoPath = await createFixtureRepo({
-    'tools/setup.exe': 'pretend program',
-    'lib/native.so': 'pretend library',
+    'tools/setup.exe': Buffer.from([0x4d, 0x5a, 0x90, 0x00, 0x03]),
+    'lib/native.so': Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0x00]),
+    'docs/printable.lib': 'just text that happens to have a .lib name',
     'bin/linux-tool': Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01]),
     'bin/run': '#!/bin/sh\necho hi\n',
     'gradle/wrapper/gradle-wrapper.jar': 'allowed',

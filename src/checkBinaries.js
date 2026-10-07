@@ -31,9 +31,12 @@ export async function checkBinaries(repoPath) {
     if (file.endsWith(ALLOWED_SUFFIX)) continue;
 
     const extension = extname(file).toLowerCase();
-    if (BINARY_EXTENSIONS.has(extension)) {
+    if (extension !== '' && !BINARY_EXTENSIONS.has(extension)) continue;
+
+    const firstBytes = await readFirstBytes(join(repoPath, file));
+    if (BINARY_EXTENSIONS.has(extension) && isBinaryContent(firstBytes)) {
       binaries.push(file);
-    } else if (extension === '' && (await startsLikeAProgram(join(repoPath, file)))) {
+    } else if (extension === '' && startsLikeAProgram(firstBytes)) {
       binaries.push(file);
     }
   }
@@ -41,14 +44,24 @@ export async function checkBinaries(repoPath) {
   return binaries;
 }
 
+// A plain-text file that merely has a .lib or .exe name isn't a program.
+// Compiled files almost always contain zero bytes; text files never do.
+function isBinaryContent(bytes) {
+  return bytes.includes(0);
+}
+
 // Files without an extension (like bin/tool) are recognized by their first bytes.
-async function startsLikeAProgram(path) {
+function startsLikeAProgram(bytes) {
+  return EXECUTABLE_SIGNATURES.some((signature) => {
+    return signature.length <= bytes.length && signature.every((byte, index) => bytes[index] === byte);
+  });
+}
+
+async function readFirstBytes(path) {
   const handle = await open(path, 'r');
   try {
-    const { buffer, bytesRead } = await handle.read(Buffer.alloc(4), 0, 4, 0);
-    return EXECUTABLE_SIGNATURES.some((signature) => {
-      return signature.length <= bytesRead && signature.every((byte, index) => buffer[index] === byte);
-    });
+    const { buffer, bytesRead } = await handle.read(Buffer.alloc(8000), 0, 8000, 0);
+    return buffer.subarray(0, bytesRead);
   } finally {
     await handle.close();
   }
