@@ -9,19 +9,19 @@ import { checkLink } from './checkLink.js';
 const MAX_PARALLEL_CHECKS = 8;
 
 export async function findBrokenLinks(repoPath) {
-  const filesByUrl = await collectLinks(repoPath);
-  const results = await checkAllLinks(Array.from(filesByUrl.keys()));
+  const locationsByUrl = await collectLinks(repoPath);
+  const results = await checkAllLinks(Array.from(locationsByUrl.keys()));
   const brokenLinks = [];
   const unverifiedLinks = [];
 
-  // The same URL often appears in several files (like translated READMEs),
+  // The same URL often appears in several places (like translated READMEs),
   // so each one is checked once and the result applies everywhere it appears.
-  for (const [url, files] of filesByUrl) {
+  for (const [url, locations] of locationsByUrl) {
     const result = results.get(url);
     if (result.ok) continue;
 
-    for (const file of files) {
-      const entry = { url, file, reason: result.reason };
+    for (const location of locations) {
+      const entry = { url, file: location.file, line: location.line, reason: result.reason };
       if (result.blocked) {
         unverifiedLinks.push(entry);
       } else {
@@ -30,7 +30,7 @@ export async function findBrokenLinks(repoPath) {
     }
   }
 
-  return { checkedCount: filesByUrl.size, brokenLinks, unverifiedLinks };
+  return { checkedCount: locationsByUrl.size, brokenLinks, unverifiedLinks };
 }
 
 // A few "workers" each take the next unchecked URL until none are left, so
@@ -57,19 +57,19 @@ async function checkAllLinks(urls) {
 
 async function collectLinks(repoPath) {
   const files = await listFiles(repoPath);
-  const filesByUrl = new Map();
+  const locationsByUrl = new Map();
 
   for (const file of files) {
     if (!file.endsWith('.md')) continue;
 
     const content = await readFile(join(repoPath, file), 'utf8');
-    for (const url of extractLinks(content)) {
-      if (!filesByUrl.has(url)) {
-        filesByUrl.set(url, []);
+    for (const link of extractLinks(content)) {
+      if (!locationsByUrl.has(link.url)) {
+        locationsByUrl.set(link.url, []);
       }
-      filesByUrl.get(url).push(file);
+      locationsByUrl.get(link.url).push({ file, line: link.line });
     }
   }
 
-  return filesByUrl;
+  return locationsByUrl;
 }

@@ -37,7 +37,7 @@ function printLinks({ checkedCount, brokenLinks, unverifiedLinks }) {
   } else {
     console.log(`  ${picocolors.red('✘')} ${checkedCount} link(s) checked, ${brokenLinks.length} broken`);
     for (const broken of brokenLinks) {
-      console.log(`    ${picocolors.red('✘')} ${broken.url} (${broken.reason}) — ${broken.file}`);
+      console.log(`    ${picocolors.red('✘')} ${broken.url} (${broken.reason}) — ${broken.file}:${broken.line}`);
     }
   }
 
@@ -51,6 +51,6 @@ function printUnverifiedLinks(unverifiedLinks) {
     `  ${picocolors.yellow('?')} ${unverifiedLinks.length} couldn't be verified (the site blocks automated checks)`,
   );
   for (const link of unverifiedLinks) {
-    console.log(picocolors.dim(`    ? ${link.url} (${link.reason}) — ${link.file}`));
+    console.log(picocolors.dim(`    ? ${link.url} (${link.reason}) — ${link.file}:${link.line}`));
   }
 }
