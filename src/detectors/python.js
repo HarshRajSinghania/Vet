@@ -1,9 +1,7 @@
-// Detects Python source files by extension.
-const EXTENSIONS = ['.py'];
-
+// Python source files. Docstrings count as code, the way most counters treat them.
 export default {
   name: 'Python',
-  countMatches(files) {
-    return files.filter((file) => EXTENSIONS.some((ext) => file.endsWith(ext))).length;
-  },
+  extensions: ['.py'],
+  lineComments: ['#'],
+  blockComment: null,
 };

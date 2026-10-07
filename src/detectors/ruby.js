@@ -1,9 +1,7 @@
-// Detects Ruby source files by extension.
-const EXTENSIONS = ['.rb'];
-
+// Ruby source files.
 export default {
   name: 'Ruby',
-  countMatches(files) {
-    return files.filter((file) => EXTENSIONS.some((ext) => file.endsWith(ext))).length;
-  },
+  extensions: ['.rb'],
+  lineComments: ['#'],
+  blockComment: ['=begin', '=end'],
 };

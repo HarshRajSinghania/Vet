@@ -64,10 +64,11 @@ Here's what happens, in order, when you run `vet https://github.com/owner/repo`:
 
 ## Adding a new language detector
 
-Add a file to `src/detectors/` that exports a `name` and a
-`countMatches(files)` function — copy an existing one like
-`src/detectors/python.js` as a starting point — then add it to the list in
-`src/detectors/index.js`.
+Add a file to `src/detectors/` (copy `src/detectors/go.js`) that exports the
+language's `name`, its file `extensions`, its `lineComments` markers (like
+`['//']`), and its `blockComment` start and end (like `['/*', '*/']`, or `null`
+if it has none). Then add it to the list in `src/detectors/index.js`. The
+markers let `src/countLines.js` tell code lines from comments.
 
 ## Adding a new language's tests
 

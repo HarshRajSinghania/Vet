@@ -22,9 +22,19 @@ function printLanguages(languages) {
   }
 
   for (const language of languages) {
-    const fileWord = language.fileCount === 1 ? 'file' : 'files';
-    console.log(`  ${picocolors.cyan('●')} ${language.name.padEnd(12)} ${language.fileCount} ${fileWord}`);
+    const share = `${language.percent}%`.padStart(6);
+    const details = picocolors.dim(
+      `in ${language.fileCount} file(s), plus ${formatNumber(language.comment)} comment and ${formatNumber(language.blank)} blank`,
+    );
+    console.log(
+      `  ${picocolors.cyan('●')} ${language.name.padEnd(11)} ${share}  ${formatNumber(language.code)} line(s) of code ${details}`,
+    );
   }
+}
+
+// 12345 -> "12,345"
+function formatNumber(number) {
+  return number.toLocaleString('en-US');
 }
 
 function printLinks({ checkedCount, brokenLinks, unverifiedLinks }) {

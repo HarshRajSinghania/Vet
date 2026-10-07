@@ -1,9 +1,7 @@
-// Detects Java source files by extension.
-const EXTENSIONS = ['.java'];
-
+// Java source files.
 export default {
   name: 'Java',
-  countMatches(files) {
-    return files.filter((file) => EXTENSIONS.some((ext) => file.endsWith(ext))).length;
-  },
+  extensions: ['.java'],
+  lineComments: ['//'],
+  blockComment: ['/*', '*/'],
 };

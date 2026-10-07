@@ -1,9 +1,7 @@
-// Detects JavaScript and TypeScript source files by extension.
-const EXTENSIONS = ['.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx'];
-
+// JavaScript and TypeScript source files.
 export default {
   name: 'JavaScript',
-  countMatches(files) {
-    return files.filter((file) => EXTENSIONS.some((ext) => file.endsWith(ext))).length;
-  },
+  extensions: ['.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx'],
+  lineComments: ['//'],
+  blockComment: ['/*', '*/'],
 };
