@@ -4,8 +4,16 @@ import picocolors from 'picocolors';
 
 const SEVERITY_COLORS = { high: picocolors.red, medium: picocolors.yellow, low: picocolors.dim };
 
-export function printHealth({ license, hygiene, binaries, workflows }) {
+const ACTIVITY_LABELS = {
+  active: picocolors.green('✔ Actively maintained'),
+  quiet: picocolors.yellow('? Quiet'),
+  inactive: picocolors.red('✘ Inactive'),
+  archived: picocolors.red('✘ Archived (read-only, no longer maintained)'),
+};
+
+export function printHealth({ repoInfo, license, hygiene, binaries, workflows }) {
   console.log(picocolors.bold('\nRepo health'));
+  printActivity(repoInfo);
   printLicense(license);
   printHygiene(hygiene);
   printBinaries(binaries);
@@ -25,6 +33,29 @@ function printWorkflowRisks({ workflowCount, findings }) {
     console.log(`    ${severity} ${found.file}:${found.line} ${found.problem}`);
     console.log(picocolors.dim(`        ${found.why}`));
   }
+}
+
+function printActivity(repoInfo) {
+  if (!repoInfo.available) {
+    console.log(`  ${picocolors.yellow('?')} Activity: unknown ${picocolors.dim(`— ${repoInfo.reason}`)}`);
+    return;
+  }
+
+  const lastPush = repoInfo.daysSinceLastPush === 0 ? 'today' : `${repoInfo.daysSinceLastPush} day(s) ago`;
+  console.log(
+    `  ${ACTIVITY_LABELS[repoInfo.activity]}: ${repoInfo.recentCommitCount} commit(s) on ${repoInfo.defaultBranch} ` +
+      `in the last 90 days, last push to any branch ${lastPush}`,
+  );
+
+  const release = repoInfo.latestRelease
+    ? `latest release ${repoInfo.latestRelease.tag} (${repoInfo.latestRelease.publishedAt})`
+    : 'no releases';
+  console.log(
+    picocolors.dim(
+      `      ⭐ ${repoInfo.stars} stars, ${repoInfo.forks} forks, ${repoInfo.contributorCount} contributor(s), ` +
+        `${repoInfo.openIssuesAndPullRequests} open issues and PRs, ${release}`,
+    ),
+  );
 }
 
 function printLicense(license) {
