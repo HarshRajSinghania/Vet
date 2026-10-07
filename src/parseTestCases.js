@@ -52,6 +52,26 @@ export function lookupCaseStatus(caseStatuses, file, test) {
   return 'unknown';
 }
 
+// Tests built while the suite runs (like it() calls inside a loop) have no
+// fixed name in the code, so the test tool's output is the only place they
+// show up. Returns those, with how many tests shared each name.
+export function findOutputOnlyCases(outline, caseStatuses) {
+  const namesInCode = new Set();
+  for (const group of outline) {
+    for (const test of group.tests) {
+      namesInCode.add(test.rawName);
+    }
+  }
+
+  const outputOnly = [];
+  for (const [name, status] of caseStatuses.byName) {
+    if (!namesInCode.has(name)) {
+      outputOnly.push({ name, status, times: caseStatuses.timesSeen.get(name) || 1 });
+    }
+  }
+  return outputOnly;
+}
+
 // A test that fails in one command and passes in another counts as failed.
 function keepMostSevere(statusMap, key, status) {
   const existing = statusMap.get(key);

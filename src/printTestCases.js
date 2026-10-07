@@ -2,7 +2,7 @@
 // outcome vet saw for each, plus any the test tools reported that the code
 // only creates while running (e.g. it() calls inside a loop).
 import picocolors from 'picocolors';
-import { lookupCaseStatus } from './parseTestCases.js';
+import { lookupCaseStatus, findOutputOnlyCases } from './parseTestCases.js';
 
 const STATUS_ICONS = {
   passed: picocolors.green('✔'),
@@ -52,29 +52,14 @@ function printFileCases(group, caseStatuses, totals) {
   }
 }
 
-// Tests built while the suite runs have no fixed name in the code, so the
-// test tool's output is the only place they show up.
 function printOutputOnlyCases(outline, caseStatuses, totals) {
-  const namesInCode = new Set();
-  for (const group of outline) {
-    for (const test of group.tests) {
-      namesInCode.add(test.rawName);
-    }
-  }
-
-  const outputOnly = [];
-  for (const [name, status] of caseStatuses.byName) {
-    if (!namesInCode.has(name)) {
-      outputOnly.push({ name, status });
-    }
-  }
+  const outputOnly = findOutputOnlyCases(outline, caseStatuses);
   if (outputOnly.length === 0) return;
 
   console.log(`\n    ${picocolors.underline('Reported while running')} ${picocolors.dim('(created by the code at runtime)')}`);
   for (const test of outputOnly) {
-    const times = caseStatuses.timesSeen.get(test.name) || 1;
-    totals[test.status] += times;
-    const repeatNote = times > 1 ? picocolors.dim(` (${times} tests with this name)`) : '';
+    totals[test.status] += test.times;
+    const repeatNote = test.times > 1 ? picocolors.dim(` (${test.times} tests with this name)`) : '';
     console.log(`        ${STATUS_ICONS[test.status]} ${test.name}${repeatNote}`);
   }
 }

@@ -5,19 +5,14 @@ import picocolors from 'picocolors';
 import { parseRepoUrl } from './parseRepoUrl.js';
 import { cloneRepo } from './cloneRepo.js';
 import { removeTempDir } from './tempDir.js';
-import { detectLanguages } from './detectLanguage.js';
-import { findBrokenLinks } from './findBrokenLinks.js';
-import { checkHygiene } from './checkHygiene.js';
-import { checkBinaries } from './checkBinaries.js';
-import { detectLicense } from './detectLicense.js';
-import { checkWorkflows } from './checkWorkflows.js';
-import { fetchRepoInfo } from './fetchRepoInfo.js';
-import { scoreReport } from './scoreReport.js';
-import { printScore } from './printScore.js';
+import { collectChecks } from './collectChecks.js';
 import { explainTests } from './explainTests.js';
 import { runTests } from './runTests.js';
+import { scoreReport } from './scoreReport.js';
+import { toJson } from './toJson.js';
 import { printReport, printElapsedTime } from './report.js';
 import { printTestSection } from './printTestReport.js';
+import { printScore } from './printScore.js';
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -30,39 +25,33 @@ export async function runCli(argv) {
   program
     .name('vet')
     .version(packageJson.version)
-    .description("Vet a GitHub repository: detect its languages, find broken doc links, and run its tests")
+    .description("Vet a GitHub repository: its health, security, licensing, docs and tests")
     .argument('<url>', 'GitHub repository URL, e.g. https://github.com/owner/repo')
     .option('--no-tests', "don't run the repo's tests (running them executes the repo's code on your machine)")
+    .option('--json', 'print the full report as JSON instead of text')
     .parse(argv);
 
   const [url] = program.args;
-  const { tests: shouldRunTests } = program.opts();
-  await vetRepository(url, shouldRunTests);
+  await vetRepository(url, program.opts());
 }
 
-async function vetRepository(url, shouldRunTests) {
+async function vetRepository(url, options) {
   const startTime = Date.now();
+  // With --json, standard output must hold only the JSON, so progress goes to stderr.
+  const say = options.json ? console.error : console.log;
   let repoPath;
 
   try {
     const repoName = parseRepoUrl(url);
-    console.log(`Vetting ${picocolors.bold(repoName)}...\n`);
+    say(`Vetting ${picocolors.bold(repoName)}...\n`);
 
     repoPath = await cloneRepo(url);
-    const report = { repo: repoName };
-    report.languages = await detectLanguages(repoPath);
-    report.repoInfo = await fetchRepoInfo(repoName);
-    report.license = await detectLicense(repoPath);
-    report.hygiene = await checkHygiene(repoPath);
-    report.binaries = await checkBinaries(repoPath);
-    report.workflows = await checkWorkflows(repoPath);
-    report.links = await findBrokenLinks(repoPath);
-    printReport(report);
-    report.tests = await reportTests(repoPath, shouldRunTests);
-    report.score = scoreReport(report);
-    printScore(report.score);
+    const report = await collectChecks(repoName, repoPath);
+    if (!options.json) printReport(report);
 
-    printElapsedTime(((Date.now() - startTime) / 1000).toFixed(1));
+    report.tests = await reportTests(repoPath, options, say);
+    report.score = scoreReport(report);
+    finishReport(report, options, startTime);
   } catch (error) {
     console.error(picocolors.red(`Could not vet repository: ${error.message}`));
     process.exitCode = 1;
@@ -73,19 +62,26 @@ async function vetRepository(url, shouldRunTests) {
   }
 }
 
+function finishReport(report, options, startTime) {
+  if (options.json) {
+    console.log(JSON.stringify(toJson(report), null, 2));
+    return;
+  }
+  printScore(report.score);
+  printElapsedTime(((Date.now() - startTime) / 1000).toFixed(1));
+}
+
 // Test cases are always listed, since finding them only reads files. Running
 // them is the part that executes the repo's code, so --no-tests turns just that off.
-async function reportTests(repoPath, shouldRunTests) {
+async function reportTests(repoPath, options, say) {
   const outline = await explainTests(repoPath);
   let testRun = null;
 
-  if (shouldRunTests) {
-    console.log(
-      picocolors.yellow("\nRunning the repo's tests. This executes its code on your machine (pass --no-tests to skip)."),
-    );
-    testRun = await runTests(repoPath, (message) => console.log(picocolors.dim(`  ${message}`)));
+  if (options.tests) {
+    say(picocolors.yellow("\nRunning the repo's tests. This executes its code on your machine (pass --no-tests to skip)."));
+    testRun = await runTests(repoPath, (message) => say(picocolors.dim(`  ${message}`)));
   }
 
-  printTestSection({ outline, testRun });
+  if (!options.json) printTestSection({ outline, testRun });
   return { outline, testRun };
 }
