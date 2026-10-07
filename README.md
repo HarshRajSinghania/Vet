@@ -1,9 +1,22 @@
 # Vet
 
-A command-line tool that vets a GitHub repository: it detects which
-programming languages the repo uses, checks the links in its Markdown files
-for anything broken, and runs every test the repo declares, showing whether
-each individual test case passed or failed.
+A command-line tool that vets a GitHub repository before you depend on it.
+In one run it tells you:
+
+- **What it's made of:** lines of code per language, and each language's share.
+- **Whether it's alive:** recent commits, last push, stars, contributors,
+  latest release, or whether it's archived.
+- **Whether you may use it:** which license it has, in plain words.
+- **Whether it's well kept:** README, contributing guide, security policy,
+  changelog, templates, CI, dependency updates and tests.
+- **Whether it's safe:** committed programs that can't be reviewed, and risky
+  GitHub Actions setups that could leak secrets.
+- **Whether its docs work:** broken web links, links to missing files, and
+  links to `#headings` that don't exist, each with its file and line.
+- **Whether its tests pass:** every test the repo declares, with a result
+  for each individual test case.
+
+It then sums it all up as one **score out of 10**.
 
 ## Install
 
@@ -25,20 +38,67 @@ Vet clones the repository into a temporary folder, scans it, prints a
 report, and deletes the temporary folder when it's done — nothing is left
 behind.
 
-Example output:
+Example output (shortened):
 
 ```
 Vetting tj/commander.js...
 
 Languages
-  ● JavaScript   171 files
+  ● JavaScript    100%  15,224 line(s) of code in 171 file(s), plus 2,847 comment and 2,571 blank
+
+Repo health
+  ? Quiet: 0 commit(s) on master in the last 90 days, last push to any branch 2 day(s) ago
+      ⭐ 28415 stars, 1781 forks, 199 contributor(s), 12 open issues and PRs, latest release v15.0.0 (2026-05-29)
+  ✔ License: MIT (permissive) — LICENSE
+      You can reuse it almost any way you like, as long as you keep the copyright notice.
+  Project files: 9 of 11 present
+    ✔ README (Readme.md)
+    ✘ Code of conduct — sets expectations for how people treat each other
+    ...
+  ✔ No compiled programs committed
+  ✔ CI security: no risky patterns in 2 workflow(s)
 
 Links
-  ✘ 26 link(s) checked, 4 broken
-    ✘ https://example.com/dead-link (HTTP 404) — Readme.md
+  ✘ 243 link(s) checked, 8 broken
+    ✘ https://nodejs.org/en/docs/guides/debugging-getting-started/ (HTTP 404) — Readme.md:1078
+    ✘ #独立的可执行（子）命令 (no heading #独立的可执行（子）命令) — Readme_zh-CN.md:30
+    ...
+  ? 2 couldn't be verified (the site blocks automated checks)
 
-Done in 5.2s
+Vet score: 8.5 / 10 — Looks healthy and well kept
+  Maintained             █████····· 5
+  CI security            ██████████ 10
+  License                ██████████ 10
+  ...
 ```
+
+### Options
+
+| Option | What it does |
+|--------|--------------|
+| `--no-tests` | Don't run the repo's tests (they still get listed). |
+| `--json` | Print the whole report as JSON on standard output, for scripts and CI. Progress goes to stderr. |
+| `--version` | Print vet's version. |
+
+Set `GITHUB_TOKEN` to raise GitHub's API limit from 60 to 5,000 requests an
+hour. Vet needs 4 per repo, so this only matters if you vet many repos.
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | No broken links, and all test commands passed. |
+| `1` | Broken links or failing test commands were found, so CI can fail the build. |
+| `2` | Vet itself couldn't run (a bad URL, or the clone failed). |
+
+### Where the checks come from
+
+The checks are modeled on well-known tools: the score and the security,
+maintenance and binary checks on [OpenSSF Scorecard](https://github.com/ossf/scorecard),
+the project-files checklist on [repolinter](https://github.com/todogroup/repolinter),
+license detection on [licensee](https://github.com/licensee/licensee), line
+counts on [scc](https://github.com/boyter/scc), and link checking on
+[lychee](https://github.com/lycheeverse/lychee).
 
 ## Tests
 

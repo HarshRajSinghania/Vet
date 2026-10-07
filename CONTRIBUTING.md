@@ -26,20 +26,34 @@ Here's what happens, in order, when you run `vet https://github.com/owner/repo`:
 4. **[src/cloneRepo.js](src/cloneRepo.js)** asks
    **[src/tempDir.js](src/tempDir.js)** for a fresh temporary directory, then
    shallow-clones the repo into it with `git clone --depth 1`.
-5. **[src/detectLanguage.js](src/detectLanguage.js)** calls
-   **[src/listFiles.js](src/listFiles.js)** to get every file path in the
-   clone, then runs each detector in **[src/detectors/](src/detectors)**
-   against that file list to count how many files match each language.
-6. **[src/findBrokenLinks.js](src/findBrokenLinks.js)** reuses `listFiles.js`
-   to find every `.md` file, pulls links out of each one with
-   **[src/extractLinks.js](src/extractLinks.js)**, and checks each link with
-   **[src/checkLink.js](src/checkLink.js)**.
-7. **[src/report.js](src/report.js)** prints the languages found and any
-   broken links to the console.
-8. **[src/explainTests.js](src/explainTests.js)** finds every test case
+5. **[src/collectChecks.js](src/collectChecks.js)** runs every check that
+   only reads the clone (most of them get the file list from
+   **[src/listFiles.js](src/listFiles.js)**):
+   - **[src/detectLanguage.js](src/detectLanguage.js)** matches files to the
+     languages in **[src/detectors/](src/detectors)** and counts their code,
+     comment and blank lines with **[src/countLines.js](src/countLines.js)**.
+   - **[src/fetchRepoInfo.js](src/fetchRepoInfo.js)** asks GitHub's API for
+     recent commits, last push, stars, contributors and the latest release.
+   - **[src/detectLicense.js](src/detectLicense.js)** names the license from
+     phrases unique to each license text.
+   - **[src/checkHygiene.js](src/checkHygiene.js)** looks for the README,
+     contributing guide, security policy, CI and other project files.
+   - **[src/checkBinaries.js](src/checkBinaries.js)** flags committed programs.
+   - **[src/checkWorkflows.js](src/checkWorkflows.js)** looks for risky
+     patterns in GitHub Actions workflows.
+   - **[src/findBrokenLinks.js](src/findBrokenLinks.js)** pulls links out of
+     every `.md` file with **[src/extractLinks.js](src/extractLinks.js)**.
+     Web links go to **[src/checkLink.js](src/checkLink.js)** (8 at a time),
+     and links inside the repo go to
+     **[src/checkLocalLink.js](src/checkLocalLink.js)**, which matches
+     `#anchors` using **[src/markdownAnchors.js](src/markdownAnchors.js)**.
+6. **[src/report.js](src/report.js)** prints the languages and links, and
+   **[src/printHealth.js](src/printHealth.js)** prints the repo health section.
+   With `--json`, nothing is printed yet.
+7. **[src/explainTests.js](src/explainTests.js)** finds every test case
    written in the repo's test files (`it('...')`, `def test_...`,
    `func Test...`, `#[test] fn ...`) and gives each a readable name.
-9. Unless `--no-tests` was passed, **[src/runTests.js](src/runTests.js)**
+8. Unless `--no-tests` was passed, **[src/runTests.js](src/runTests.js)**
    runs the tests:
    - **[src/findTestCommands.js](src/findTestCommands.js)** collects the test
      commands the repo declares in `package.json` and its `Makefile`, and asks
@@ -55,10 +69,16 @@ Here's what happens, in order, when you run `vet https://github.com/owner/repo`:
      pass/fail totals from each command's output, and
      **[src/parseTestCases.js](src/parseTestCases.js)** reads each individual
      test's result.
-10. **[src/printTestReport.js](src/printTestReport.js)** prints each command
-    and its totals, then **[src/printTestCases.js](src/printTestCases.js)**
-    lists every test case with its result.
-11. Back in `src/cli.js`, the `finally` block calls `removeTempDir()` to delete
+9. **[src/printTestReport.js](src/printTestReport.js)** prints each command
+   and its totals, then **[src/printTestCases.js](src/printTestCases.js)**
+   lists every test case with its result.
+10. **[src/scoreReport.js](src/scoreReport.js)** turns every check into a
+    0-10 mark and a weighted overall score, which
+    **[src/printScore.js](src/printScore.js)** prints. With `--json`,
+    **[src/toJson.js](src/toJson.js)** prints the whole report as JSON instead.
+11. **[src/exitStatus.js](src/exitStatus.js)** sets the exit code: 1 if links
+    are broken or test commands failed, so CI can fail the build.
+12. Back in `src/cli.js`, the `finally` block calls `removeTempDir()` to delete
     the clone, whether or not anything went wrong. This also removes anything
     the test run created, like `node_modules` or the Python virtual environment.
 
