@@ -2,10 +2,25 @@
 // and safe to depend on.
 import picocolors from 'picocolors';
 
-export function printHealth({ hygiene, binaries }) {
+export function printHealth({ license, hygiene, binaries }) {
   console.log(picocolors.bold('\nRepo health'));
+  printLicense(license);
   printHygiene(hygiene);
   printBinaries(binaries);
+}
+
+function printLicense(license) {
+  if (!license.file) {
+    console.log(`  ${picocolors.red('✘')} License: none ${picocolors.dim('— legally, nobody may reuse this code')}`);
+    return;
+  }
+  if (!license.id) {
+    console.log(`  ${picocolors.yellow('?')} License: not recognized ${picocolors.dim(`— read ${license.file} yourself`)}`);
+    return;
+  }
+
+  console.log(`  ${picocolors.green('✔')} License: ${picocolors.bold(license.id)} (${license.kind}) ${picocolors.dim(`— ${license.file}`)}`);
+  console.log(picocolors.dim(`      You can ${license.meaning}.`));
 }
 
 function printBinaries(binaries) {

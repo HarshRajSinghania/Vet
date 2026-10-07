@@ -9,6 +9,7 @@ import { detectLanguages } from './detectLanguage.js';
 import { findBrokenLinks } from './findBrokenLinks.js';
 import { checkHygiene } from './checkHygiene.js';
 import { checkBinaries } from './checkBinaries.js';
+import { detectLicense } from './detectLicense.js';
 import { explainTests } from './explainTests.js';
 import { runTests } from './runTests.js';
 import { printReport, printElapsedTime } from './report.js';
@@ -46,6 +47,7 @@ async function vetRepository(url, shouldRunTests) {
     repoPath = await cloneRepo(url);
     const report = { repo: repoName };
     report.languages = await detectLanguages(repoPath);
+    report.license = await detectLicense(repoPath);
     report.hygiene = await checkHygiene(repoPath);
     report.binaries = await checkBinaries(repoPath);
     report.links = await findBrokenLinks(repoPath);
