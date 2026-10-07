@@ -1,26 +1,39 @@
-// Pulls http(s) URLs out of Markdown link syntax, e.g. [text](https://example.com),
-// along with the line each one is on so the report can point right at it.
-const MARKDOWN_LINK_PATTERN = /\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/g;
+// Pulls links out of Markdown, like [text](https://example.com) or
+// [setup](docs/setup.md#install), along with the line each one is on.
+// Links shown as examples inside code blocks or `code spans` aren't real
+// links, so they're skipped.
+const MARKDOWN_LINK_PATTERN = /\[[^\]]*\]\(([^\s)]+)[^)]*\)/g;
 
 export function extractLinks(markdownText) {
   const links = [];
-  let line = 1;
-  let countedUpTo = 0;
+  const lines = markdownText.split('\n');
+  let insideCodeBlock = false;
 
-  for (const match of markdownText.matchAll(MARKDOWN_LINK_PATTERN)) {
-    line += countNewlines(markdownText, countedUpTo, match.index);
-    countedUpTo = match.index;
-    links.push({ url: match[1], line });
+  for (let index = 0; index < lines.length; index += 1) {
+    if (/^\s*(```|~~~)/.test(lines[index])) {
+      insideCodeBlock = !insideCodeBlock;
+      continue;
+    }
+    if (insideCodeBlock) continue;
+
+    const withoutCodeSpans = lines[index].replace(/`[^`]*`/g, '');
+    for (const match of withoutCodeSpans.matchAll(MARKDOWN_LINK_PATTERN)) {
+      const kind = classifyTarget(match[1]);
+      if (kind) {
+        links.push({ target: match[1], kind, line: index + 1 });
+      }
+    }
   }
 
   return links;
 }
 
-// Counting only the text since the previous link keeps this fast on long files.
-function countNewlines(text, start, end) {
-  let count = 0;
-  for (let index = start; index < end; index += 1) {
-    if (text[index] === '\n') count += 1;
-  }
-  return count;
+// "web" links are fetched, "local" ones are looked up inside the repo. Other
+// kinds (mailto:, site-absolute /paths, {{templates}}) can't be checked from
+// the repo alone, so they're left out.
+function classifyTarget(target) {
+  if (/^https?:\/\//i.test(target)) return 'web';
+  if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return null;
+  if (target.startsWith('/') || target.includes('{{')) return null;
+  return 'local';
 }
