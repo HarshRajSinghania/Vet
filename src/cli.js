@@ -10,6 +10,7 @@ import { findBrokenLinks } from './findBrokenLinks.js';
 import { checkHygiene } from './checkHygiene.js';
 import { checkBinaries } from './checkBinaries.js';
 import { detectLicense } from './detectLicense.js';
+import { checkWorkflows } from './checkWorkflows.js';
 import { explainTests } from './explainTests.js';
 import { runTests } from './runTests.js';
 import { printReport, printElapsedTime } from './report.js';
@@ -50,6 +51,7 @@ async function vetRepository(url, shouldRunTests) {
     report.license = await detectLicense(repoPath);
     report.hygiene = await checkHygiene(repoPath);
     report.binaries = await checkBinaries(repoPath);
+    report.workflows = await checkWorkflows(repoPath);
     report.links = await findBrokenLinks(repoPath);
     printReport(report);
     await reportTests(repoPath, shouldRunTests);

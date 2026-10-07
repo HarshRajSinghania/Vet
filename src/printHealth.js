@@ -2,11 +2,29 @@
 // and safe to depend on.
 import picocolors from 'picocolors';
 
-export function printHealth({ license, hygiene, binaries }) {
+const SEVERITY_COLORS = { high: picocolors.red, medium: picocolors.yellow, low: picocolors.dim };
+
+export function printHealth({ license, hygiene, binaries, workflows }) {
   console.log(picocolors.bold('\nRepo health'));
   printLicense(license);
   printHygiene(hygiene);
   printBinaries(binaries);
+  printWorkflowRisks(workflows);
+}
+
+function printWorkflowRisks({ workflowCount, findings }) {
+  if (workflowCount === 0) return;
+  if (findings.length === 0) {
+    console.log(`  ${picocolors.green('✔')} CI security: no risky patterns in ${workflowCount} workflow(s)`);
+    return;
+  }
+
+  console.log(`  ${picocolors.red('✘')} CI security: ${findings.length} risk(s) in ${workflowCount} workflow(s)`);
+  for (const found of findings) {
+    const severity = SEVERITY_COLORS[found.severity](`[${found.severity}]`);
+    console.log(`    ${severity} ${found.file}:${found.line} ${found.problem}`);
+    console.log(picocolors.dim(`        ${found.why}`));
+  }
 }
 
 function printLicense(license) {
