@@ -2,9 +2,24 @@
 // and safe to depend on.
 import picocolors from 'picocolors';
 
-export function printHealth({ hygiene }) {
+export function printHealth({ hygiene, binaries }) {
   console.log(picocolors.bold('\nRepo health'));
   printHygiene(hygiene);
+  printBinaries(binaries);
+}
+
+function printBinaries(binaries) {
+  if (binaries.length === 0) {
+    console.log(`  ${picocolors.green('✔')} No compiled programs committed`);
+    return;
+  }
+
+  console.log(
+    `  ${picocolors.red('✘')} ${binaries.length} compiled program(s) committed ${picocolors.dim("— these can't be reviewed like source code")}`,
+  );
+  for (const file of binaries) {
+    console.log(`    ${picocolors.red('✘')} ${file}`);
+  }
 }
 
 function printHygiene(hygiene) {
