@@ -10,6 +10,7 @@ import { explainTests } from './explainTests.js';
 import { runTests } from './runTests.js';
 import { scoreReport } from './scoreReport.js';
 import { toJson } from './toJson.js';
+import { findExitProblems, EXIT_PROBLEMS_FOUND, EXIT_VET_FAILED } from './exitStatus.js';
 import { printReport, printElapsedTime } from './report.js';
 import { printTestSection } from './printTestReport.js';
 import { printScore } from './printScore.js';
@@ -54,7 +55,7 @@ async function vetRepository(url, options) {
     finishReport(report, options, startTime);
   } catch (error) {
     console.error(picocolors.red(`Could not vet repository: ${error.message}`));
-    process.exitCode = 1;
+    process.exitCode = EXIT_VET_FAILED;
   } finally {
     if (repoPath) {
       await removeTempDir(repoPath);
@@ -63,11 +64,19 @@ async function vetRepository(url, options) {
 }
 
 function finishReport(report, options, startTime) {
+  const problems = findExitProblems(report);
+  if (problems.length > 0) {
+    process.exitCode = EXIT_PROBLEMS_FOUND;
+  }
+
   if (options.json) {
     console.log(JSON.stringify(toJson(report), null, 2));
     return;
   }
   printScore(report.score);
+  if (problems.length > 0) {
+    console.log(picocolors.dim(`\nExit code ${EXIT_PROBLEMS_FOUND}: ${problems.join(' and ')}.`));
+  }
   printElapsedTime(((Date.now() - startTime) / 1000).toFixed(1));
 }
 
