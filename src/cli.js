@@ -31,7 +31,20 @@ export async function runCli(argv) {
     .option('--no-tests', "don't run the repo's tests (running them executes the repo's code on your machine)")
     .option('--json', 'print the full report as JSON instead of text')
     .option('--min-score <number>', 'exit with code 1 if the overall score is below this number (0 to 10)')
-    .parse(argv);
+    .exitOverride();
+
+  try {
+    program.parse(argv);
+  } catch (error) {
+    // CommanderError from exitOverride(): usage mistakes get EXIT_VET_FAILED (2);
+    // --help and --version keep exit code 0.
+    if (error.code === 'commander.helpDisplayed' || error.code === 'commander.version') {
+      process.exitCode = 0;
+    } else {
+      process.exitCode = EXIT_VET_FAILED;
+    }
+    return;
+  }
 
   const [url] = program.args;
   const options = program.opts();
@@ -56,7 +69,8 @@ async function vetRepository(url, options) {
 
   try {
     const repoName = parseRepoUrl(url);
-    say(`Vetting ${picocolors.bold(repoName)}...\n`);
+    say(`Vetting ${picocolors.bold(repoName)}...
+`);
 
     repoPath = await cloneRepo(url);
     const report = await collectChecks(repoName, repoPath);
@@ -87,7 +101,8 @@ function finishReport(report, options, startTime) {
   }
   printScore(report.score);
   if (problems.length > 0) {
-    console.log(picocolors.dim(`\nExit code ${EXIT_PROBLEMS_FOUND}: ${problems.join(' and ')}.`));
+    console.log(picocolors.dim(`
+Exit code ${EXIT_PROBLEMS_FOUND}: ${problems.join(' and ')}.`));
   }
   printElapsedTime(((Date.now() - startTime) / 1000).toFixed(1));
 }
@@ -99,7 +114,8 @@ async function reportTests(repoPath, options, say) {
   let testRun = null;
 
   if (options.tests) {
-    say(picocolors.yellow("\nRunning the repo's tests. This executes its code on your machine (pass --no-tests to skip)."));
+    say(picocolors.yellow("
+Running the repo's tests. This executes its code on your machine (pass --no-tests to skip)."));
     testRun = await runTests(repoPath, (message) => say(picocolors.dim(`  ${message}`)));
   }
 
